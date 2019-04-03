@@ -8,9 +8,9 @@ from lab3_pkg.msg import BicycleCommandMsg, BicycleStateMsg
 import numpy as np
 import tf2_ros
 import tf
+import sys
 
-THRESHOLD_X = 0.05
-THRESHOLD_Y = 0.05
+THRESHOLD_DIST = 0.05
 THRESHOLD_THETA = 0.1
 THRESHOLD_PHI = 0.1
 
@@ -105,20 +105,88 @@ class BangBang(object):
             self.rate.sleep()
         self.cmd(0, 0)
 
+
+        # Execute translation step
+        target_dist = np.sqrt((target_x-self.x)**2 + (target_y-self.y)**2)
+        start_x = self.x
+        start_y = self.y
+        error_in_dist = target_dist
+
+        while error_in_dist > THRESHOLD_DIST:
+
+            dist_traveled = np.sqrt((self.x-start_x)**2 + (self.y-start_y)**2)
+            error_in_dist = target_dist - dist_traveled
+            trans_mag = self.Kp_x * error_in_dist
+            if trans_mag > MAX_MAG:
+                trans_mag = MAX_MAG
+            elif trans_mag < -MAX_MAG:
+                trans_mag = -MAX_MAG
+
+            print('error: {}'.format(error_in_dist))
+            print('trans_mag: {}'.format(trans_mag))
+
+            self.cmd(trans_mag, 0)
+            self.rate.sleep()
+        self.cmd(0, 0)
+
+
         # Execute rotation step
+        error_theta = target_theta - self.theta
+
+        # Execute initial rotation step
+        while np.abs(error_theta) > THRESHOLD_THETA:
+
+            error_theta = target_theta - self.theta
+            turn_mag = np.abs(self.Kp_theta * error_theta)
+            turn_mag = min(turn_mag, MAX_MAG)
+            turn_d = np.sign(error_theta)
+            print('error: {}'.format(error_theta))
+            print('turn_mag: {}'.format(turn_mag))
+            print('turn_d: {}'.format(turn_d))
+            if turn_d == 0:
+                turn_d = 1
+
+            self.turn(turn_mag, turn_d)
+            self.rate.sleep()
+        self.cmd(0, 0)
 
         # Adjust phi
+        error_phi = target_phi - self.phi
 
+        # Execute initial rotation step
+        while np.abs(error_phi) > THRESHOLD_PHI:
+
+            error_phi = target_phi - self.phi
+            turn_mag = np.abs(self.Kp_theta * error_theta)
+            turn_mag = min(turn_mag, MAX_MAG)
+            turn_d = np.sign(error_phi)
+            print('error: {}'.format(error_phi))
+            print('turn_mag: {}'.format(turn_mag))
+            print('turn_d: {}'.format(turn_d))
+            if turn_d == 0:
+                turn_d = 1
+
+            self.turn(turn_mag, turn_d)
+            self.rate.sleep()
+        self.cmd(0, 0)
 
 if __name__ == '__main__':
     rospy.init_node('bangbang', anonymous=False)
     
-    b = BangBang(1, 1, 10, 1)
+    b = BangBang(10, 1, 10, 1)
+        
 
     try:
-        b.controller(5, 5, 0, 0)
+        if len(sys.argv) == 5:
+            b.controller(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+        else:
+            # b.controller(5, 5, 0, 0)
+            print('GIVE ME SOME ARGUMENTS')
     except KeyboardInterrupt:
         pass
+
+
+
     #b.run()
 
 
