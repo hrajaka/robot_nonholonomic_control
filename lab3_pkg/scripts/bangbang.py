@@ -178,7 +178,7 @@ if __name__ == '__main__':
 
     try:
         if len(sys.argv) == 5:
-            b.controller(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]))
+            b.controller(float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]))
         else:
             # b.controller(5, 5, 0, 0)
             print('GIVE ME SOME ARGUMENTS')
