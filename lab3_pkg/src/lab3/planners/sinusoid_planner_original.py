@@ -7,7 +7,6 @@ import numpy as np
 from scipy.integrate import quad
 import sys
 from copy import copy
-import matplotlib.pyplot as plt
 
 import rospy
 from lab3_pkg.msg import BicycleCommandMsg, BicycleStateMsg
@@ -31,10 +30,10 @@ class SinusoidPlanner():
 
     def plan_to_pose(self, start_state, goal_state, dt = 0.01, delta_t=2):
         """
-        Plans to a specific pose in (x,y,theta,phi) coordinates.  You
+        Plans to a specific pose in (x,y,theta,phi) coordinates.  You 
         may or may not have to convert the state to a v state with state2v()
         This is a very optional function.  You may want to plan each component separately
-        so that you can reset phi in case there's drift in phi
+        so that you can reset phi in case there's drift in phi 
 
         Parameters
         ----------
@@ -67,33 +66,33 @@ class SinusoidPlanner():
         )
 
         x_path =        self.steer_x(
-                            start_state,
-                            goal_state,
-                            0,
-                            dt,
+                            start_state, 
+                            goal_state, 
+                            0, 
+                            dt, 
                             delta_t
                         )
         phi_path =      self.steer_phi(
-                            x_path[-1][2],
-                            goal_state,
-                            x_path[-1][0] + dt,
-                            dt,
+                            x_path[-1][2], 
+                            goal_state, 
+                            x_path[-1][0] + dt, 
+                            dt, 
                             delta_t
                         )
         alpha_path =    self.steer_alpha(
-                            phi_path[-1][2],
-                            goal_state,
-                            phi_path[-1][0] + dt,
-                            dt,
+                            phi_path[-1][2], 
+                            goal_state, 
+                            phi_path[-1][0] + dt, 
+                            dt, 
                             delta_t
                         )
         y_path =        self.steer_y(
-                            alpha_path[-1][2],
-                            goal_state,
-                            alpha_path[-1][0] + dt,
-                            dt,
+                            alpha_path[-1][2], 
+                            goal_state, 
+                            alpha_path[-1][0] + dt, 
+                            dt, 
                             delta_t
-                        )
+                        )     
 
         path = []
         for p in [x_path, phi_path, alpha_path, y_path]:
@@ -160,22 +159,11 @@ class SinusoidPlanner():
         """
 
         # ************* IMPLEMENT THIS
-        start_state_v = self.state2v(start_state)
-        goal_state_v = self.state2v(goal_state)
-        delta_phi = goal_state_v[1] - start_state_v[1]
-
-        v1 = delta_phi/delta_t
-        v2 = 0
-
-        path, t = [], t0
-        while t < t0 + delta_t:
-            path.append([t, v1, v2])
-            t = t + dt
-        return self.v_path_to_u_path(path, start_state, dt)
+        return []
 
     def steer_alpha(self, start_state, goal_state, t0 = 0, dt = 0.01, delta_t = 2):
         """
-        Create a trajectory to move the turtlebot in the alpha direction.
+        Create a trajectory to move the turtlebot in the alpha direction.  
         Remember dot{alpha} = f(phi(t))*u_1(t) = f(frac{a_2}{omega}*sin(omega*t))*a_1*sin(omega*t)
         also, f(phi) = frac{1}{l}tan(phi)
         See the doc for more math details
@@ -213,6 +201,7 @@ class SinusoidPlanner():
 
         a1 = (delta_alpha*omega)/(np.pi*beta1)
 
+              
         v1 = lambda t: a1*np.sin(omega*(t))
         v2 = lambda t: a2*np.cos(omega*(t))
 
@@ -225,7 +214,7 @@ class SinusoidPlanner():
 
     def steer_y(self, start_state, goal_state, t0 = 0, dt = 0.01, delta_t = 2):
         """
-        Create a trajectory to move the turtlebot in the y direction.
+        Create a trajectory to move the turtlebot in the y direction. 
         Remember, dot{y} = g(alpha(t))*v1 = frac{alpha(t)}{sqrt{1-alpha(t)^2}}*a_1*sin(omega*t)
         See the doc for more math details
 
@@ -247,75 +236,9 @@ class SinusoidPlanner():
         :obj:`list` of (float, BicycleCommandMsg, BicycleStateMsg)
             This is a list of timesteps, the command to be sent at that time, and the predicted state at that time
         """
-
-        def compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y):
-            """
-            computes the difference between a1 and delta_y omega / pi beta1
-            """
-            f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
-
-            f2 = lambda tau: f((a2/(2*omega))*a1*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
-
-            g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
-
-            integrand = lambda t: g(quad(f2, 0, t)[0]) * np.sin(omega*t)
-
-            beta1 = (omega/np.pi) * quad(integrand, 0, delta_t)[0]
-
-            return beta1  
-
-
-
-        start_state_v = self.state2v(start_state)
-        goal_state_v = self.state2v(goal_state)
-
-        delta_y = goal_state_v[3] - start_state_v[3]
-
-        omega = 2*np.pi / delta_t
-
-        a2 = min(1, self.phi_dist*omega)
-
-        # plot the value of final_y against a1 to see if increasing of decreasing
-        a1s = np.linspace(-5, 5, 50)
-        final_ys = []
-        for a1 in a1s:
-            final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
-
-        plt.plot(a1s, final_ys )
-        plt.xlabel('a1')
-        plt.ylabel('y final')
-        plt.show()
-
-
-        # now we do the binary search
-        a1_inf = -5
-        a1_sup = 5
-
-        for k in range(15):
-            a1_middle = float((a1_inf + a1_sup)) / 2
-            print('a1_middle = {}'.format(a1_middle))
-            beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
-            
-            final_y = start_state_v[3] + (np.pi*a1_middle*beta1)/omega
-
-            print('final_y = {}'.format(final_y))
-            if goal_state_v[3] - final_y > 0: 
-                a1_inf = a1_middle
-            else:
-                a1_sup = a1_middle
-
-        # TODO: problem at the moment: the final_y that I compute does not correspond to what the Predicted Final State is in the main
-
-        # at this point we have determined the optimal value of a1
-
-        v1 = lambda t: a1_middle*np.sin(omega*(t))
-        v2 = lambda t: a2*np.cos(2*omega*(t))
-
-        path, t = [], t0
-        while t < t0 + delta_t:
-            path.append([t, v1(t-t0), v2(t-t0)])
-            t = t + dt
-        return self.v_path_to_u_path(path, start_state, dt)
+        
+        # ************* IMPLEMENT THIS
+        return []
 
     def state2v(self, state):
         """
@@ -328,7 +251,7 @@ class SinusoidPlanner():
 
         Returns
         -------
-        4x1 :obj:`numpy.ndarray`
+        4x1 :obj:`numpy.ndarray` 
             x, phi, alpha, y
         """
         return np.array([state.x, state.phi, np.sin(state.theta), state.y])
