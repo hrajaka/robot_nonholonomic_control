@@ -98,21 +98,41 @@ if __name__ == '__main__':
 
     p = SinusoidPlanner(0.3, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
-    plan = p.plan_to_pose(ex.state, goalState, 0.01, 2)
+    plan = p.plan_to_pose(ex.state, goalState, 0.01, 4)
     
     plan_x = []
     plan_y = []
     plan_theta = []
     plan_phi = []
+    plan_u1 = []
+    plan_u2 = []
     for p_i in plan:
         plan_x.append(p_i[2].x)
         plan_y.append(p_i[2].y)
         plan_theta.append(p_i[2].theta)
         plan_phi.append(p_i[2].phi)
+        plan_u1.append(p_i[1].linear_velocity)
+        plan_u2.append(p_i[1].steering_rate)
 
     plt.figure()
 
-    plt.subplot(221)
+    plt.subplot(321)
+    plt.xlabel('t')
+    plt.ylabel('u1')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_u1)), plan_u1, color='g')
+
+    plt.subplot(322)
+    plt.xlabel('t')
+    plt.ylabel('u2')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_u2)), plan_u2, color='g')
+
+    plt.subplot(323)
     plt.xlabel('t')
     plt.ylabel('x')
     plt.grid(True)
@@ -121,7 +141,7 @@ if __name__ == '__main__':
     plt.plot(range(len(plan_x)), plan_x, color='r')
     plt.plot(range(len(plan_x)), [goalState.x]*len(plan_x), linestyle='--', color='r')
 
-    plt.subplot(222)
+    plt.subplot(324)
     plt.xlabel('t')
     plt.ylabel('y')
     plt.grid(True)
@@ -130,7 +150,7 @@ if __name__ == '__main__':
     plt.plot(range(len(plan_y)), plan_y, color='r')
     plt.plot(range(len(plan_y)), [goalState.y]*len(plan_y), linestyle='--', color='r')
 
-    plt.subplot(223)
+    plt.subplot(325)
     plt.xlabel('t')
     plt.ylabel('theta')
     plt.grid(True)
@@ -139,7 +159,7 @@ if __name__ == '__main__':
     plt.plot(range(len(plan_theta)), plan_theta, color='r')
     plt.plot(range(len(plan_theta)), [goalState.theta]*len(plan_theta), linestyle='--', color='r')
 
-    plt.subplot(224)
+    plt.subplot(326)
     plt.xlabel('t')
     plt.ylabel('phi')
     plt.grid(True)

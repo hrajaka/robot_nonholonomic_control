@@ -29,7 +29,7 @@ class SinusoidPlanner():
         self.max_u1 = max_u1
         self.max_u2 = max_u2
 
-    def plan_to_pose(self, start_state, goal_state, dt = 0.01, delta_t=2):
+    def plan_to_pose(self, start_state, goal_state, dt = 0.01, delta_t=4):
         """
         Plans to a specific pose in (x,y,theta,phi) coordinates.  You
         may or may not have to convert the state to a v state with state2v()
@@ -257,7 +257,8 @@ class SinusoidPlanner():
             """
             f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
 
-            f2 = lambda tau: f((a2/(2*omega))*a1*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
+            #f2 = lambda tau: f((a2/(2*omega))*a1*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
+            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau)) * a1*np.sin(omega*tau)
 
             g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
 
@@ -267,13 +268,23 @@ class SinusoidPlanner():
 
             return beta1  
 
-
+        def compute_final_y(a1, a2, beta1, start_state_v, omega):
+            return start_state_v[3] + np.pi * a1 * beta1 / omega
 
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
 
+        print('************************************')
+        print('STEER Y ROUTINE')
+        print('start state')
+        print(start_state_v)
+        print('goal state')
+        print(goal_state_v)
+        print('delta_t')
+        print(delta_t)
         delta_y = goal_state_v[3] - start_state_v[3]
-
+        print('delta_y')
+        print(delta_y)
         omega = 2*np.pi / delta_t
 
         a2 = min(1, self.phi_dist*omega)
@@ -282,13 +293,19 @@ class SinusoidPlanner():
         a1s = np.linspace(-5, 5, 50)
         final_ys = []
         for a1 in a1s:
-            final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
+            beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
+            final_ys.append(compute_final_y(a1, a2, beta1, start_state_v, omega))
+            #final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
 
-        plt.plot(a1s, final_ys )
+        plt.figure()
+        plt.title('Binary Search Results')
         plt.xlabel('a1')
         plt.ylabel('y final')
-        plt.show()
-
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(a1s, final_ys, color='b')
+        plt.plot(a1s, goal_state_v[3]*np.ones(a1s.size), linestyle='--', color='r')
 
         # now we do the binary search
         a1_inf = -5
@@ -296,17 +313,20 @@ class SinusoidPlanner():
 
         for k in range(15):
             a1_middle = float((a1_inf + a1_sup)) / 2
-            print('a1_middle = {}'.format(a1_middle))
+            #print('a1_middle = {}'.format(a1_middle))
             beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
             
             final_y = start_state_v[3] + (np.pi*a1_middle*beta1)/omega
 
-            print('final_y = {}'.format(final_y))
+            #print('final_y = {}'.format(final_y))
+            plt.scatter(a1_middle, final_y, marker='o', color='r')
             if goal_state_v[3] - final_y > 0: 
                 a1_inf = a1_middle
             else:
                 a1_sup = a1_middle
 
+        plt.scatter(a1_middle, final_y, marker='o', color='g')
+        plt.show()
         # TODO: problem at the moment: the final_y that I compute does not correspond to what the Predicted Final State is in the main
 
         # at this point we have determined the optimal value of a1
@@ -318,6 +338,22 @@ class SinusoidPlanner():
         while t < t0 + delta_t:
             path.append([t, v1(t-t0), v2(t-t0)])
             t = t + dt
+
+        pat = np.array(path)
+        plt.figure()
+        plt.title('commands for steer_y step')
+        plt.xlabel('t')
+        plt.ylabel('command')
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(pat[:,0], pat[:,1], color='r', label='v1')
+        plt.plot(pat[:,0], pat[:,2], color='b', label='v2')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        print('\n\n')
         return self.v_path_to_u_path(path, start_state, dt)
 
     def state2v(self, state):
