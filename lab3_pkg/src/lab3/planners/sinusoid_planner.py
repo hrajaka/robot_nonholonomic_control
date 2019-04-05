@@ -164,8 +164,11 @@ class SinusoidPlanner():
         goal_state_v = self.state2v(goal_state)
         delta_phi = goal_state_v[1] - start_state_v[1]
 
-        v1 = delta_phi/delta_t
-        v2 = 0
+        # Flip these?
+        #v1 = delta_phi/delta_t
+        #v2 = 0
+        v1 = 0
+        v2 = delta_phi/delta_t
 
         path, t = [], t0
         while t < t0 + delta_t:

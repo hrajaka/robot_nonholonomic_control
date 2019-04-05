@@ -9,6 +9,7 @@ import numpy as np
 import tf2_ros
 import tf
 import sys
+import matplotlib.pyplot as plt
 
 THRESHOLD_DIST = 0.05
 THRESHOLD_THETA = 0.1
@@ -75,7 +76,13 @@ class BangBang(object):
         self.phi = msg.phi
         #print('state: {} {} {} {}'.format(self.x, self.y, self.theta, self.phi))
 
-    def controller(self, target_x, target_y, target_theta, target_phi):
+    def controller(self, target_x, target_y, target_theta, target_phi, plot=True):
+        if plot:
+            real_x = []
+            real_y = []
+            real_theta = []
+            real_phi = []
+
         # Wait until a valid state exists for all state variables
         while self.x == None or self.y == None or self.theta == None or self.phi == None:
             self.rate.sleep()
@@ -90,6 +97,12 @@ class BangBang(object):
 
         # Execute initial rotation step
         while np.abs(error_theta) > THRESHOLD_THETA:
+
+            if plot:
+                real_x.append(self.x)
+                real_y.append(self.y)
+                real_theta.append(self.theta)
+                real_phi.append(self.phi)
 
             error_theta = trajectory_theta - self.theta
             turn_mag = np.abs(self.Kp_theta * error_theta)
@@ -114,6 +127,12 @@ class BangBang(object):
 
         while error_in_dist > THRESHOLD_DIST:
 
+            if plot:
+                real_x.append(self.x)
+                real_y.append(self.y)
+                real_theta.append(self.theta)
+                real_phi.append(self.phi)
+
             dist_traveled = np.sqrt((self.x-start_x)**2 + (self.y-start_y)**2)
             error_in_dist = target_dist - dist_traveled
             trans_mag = self.Kp_x * error_in_dist
@@ -136,6 +155,12 @@ class BangBang(object):
         # Execute initial rotation step
         while np.abs(error_theta) > THRESHOLD_THETA:
 
+            if plot:
+                real_x.append(self.x)
+                real_y.append(self.y)
+                real_theta.append(self.theta)
+                real_phi.append(self.phi)
+
             error_theta = target_theta - self.theta
             turn_mag = np.abs(self.Kp_theta * error_theta)
             turn_mag = min(turn_mag, MAX_MAG)
@@ -156,6 +181,12 @@ class BangBang(object):
         # Execute initial rotation step
         while np.abs(error_phi) > THRESHOLD_PHI:
 
+            if plot:
+                real_x.append(self.x)
+                real_y.append(self.y)
+                real_theta.append(self.theta)
+                real_phi.append(self.phi)
+
             error_phi = target_phi - self.phi
             turn_mag = np.abs(self.Kp_theta * error_theta)
             turn_mag = min(turn_mag, MAX_MAG)
@@ -169,6 +200,44 @@ class BangBang(object):
             self.turn(turn_mag, turn_d)
             self.rate.sleep()
         self.cmd(0, 0)
+
+        if plot:
+            plt.figure()
+
+            plt.subplot(223)
+            plt.xlabel('timestep')
+            plt.ylabel('x')
+            plt.grid(True)
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.plot(range(len(real_x)), real_x)
+
+            plt.subplot(221)
+            plt.xlabel('timestep')
+            plt.ylabel('x')
+            plt.grid(True)
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.plot(range(len(real_y)), real_y)
+
+            plt.subplot(222)
+            plt.xlabel('timestep')
+            plt.ylabel('theta')
+            plt.grid(True)
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.plot(range(len(real_theta)), real_theta)
+
+            plt.subplot(224)
+            plt.xlabel('timestep')
+            plt.ylabel('phi')
+            plt.grid(True)
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.plot(range(len(real_phi)), real_phi)
+
+            plt.tight_layout()
+            plt.show()
 
 if __name__ == '__main__':
     rospy.init_node('bangbang', anonymous=False)

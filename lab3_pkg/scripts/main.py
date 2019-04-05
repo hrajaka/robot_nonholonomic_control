@@ -14,6 +14,7 @@ import rospy
 from lab3_pkg.msg import BicycleCommandMsg, BicycleStateMsg
 
 from lab3.planners import SinusoidPlanner
+import matplotlib.pyplot as plt
 
 class Exectutor(object):
     def __init__(self):
@@ -99,6 +100,57 @@ if __name__ == '__main__':
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
     plan = p.plan_to_pose(ex.state, goalState, 0.01, 2)
     
+    plan_x = []
+    plan_y = []
+    plan_theta = []
+    plan_phi = []
+    for p_i in plan:
+        plan_x.append(p_i[2].x)
+        plan_y.append(p_i[2].y)
+        plan_theta.append(p_i[2].theta)
+        plan_phi.append(p_i[2].phi)
+
+    plt.figure()
+
+    plt.subplot(221)
+    plt.xlabel('t')
+    plt.ylabel('x')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_x)), plan_x, color='r')
+    plt.plot(range(len(plan_x)), [goalState.x]*len(plan_x), linestyle='--', color='r')
+
+    plt.subplot(222)
+    plt.xlabel('t')
+    plt.ylabel('y')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_y)), plan_y, color='r')
+    plt.plot(range(len(plan_y)), [goalState.y]*len(plan_y), linestyle='--', color='r')
+
+    plt.subplot(223)
+    plt.xlabel('t')
+    plt.ylabel('theta')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_theta)), plan_theta, color='r')
+    plt.plot(range(len(plan_theta)), [goalState.theta]*len(plan_theta), linestyle='--', color='r')
+
+    plt.subplot(224)
+    plt.xlabel('t')
+    plt.ylabel('phi')
+    plt.grid(True)
+    plt.axvline(color='k')
+    plt.axhline(color='k')
+    plt.plot(range(len(plan_phi)), plan_phi, color='r')
+    plt.plot(range(len(plan_phi)), [goalState.phi]*len(plan_phi), linestyle='--', color='r')
+
+    plt.tight_layout()
+    plt.show()
+
     print "Predicted Initial State"
     print plan[0][2]
     print "Predicted Final State"
