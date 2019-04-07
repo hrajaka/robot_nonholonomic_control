@@ -7,6 +7,7 @@ import numpy as np
 from scipy.integrate import quad
 import sys
 from copy import copy
+from copy import deepcopy
 import matplotlib.pyplot as plt
 
 import rospy
@@ -54,8 +55,9 @@ class SinusoidPlanner():
         # This bit hasn't been exhaustively tested, so you might hit a singularity anyways
         max_abs_angle = max(abs(goal_state.theta), abs(start_state.theta))
         min_abs_angle = min(abs(goal_state.theta), abs(start_state.theta))
-        if (max_abs_angle > np.pi/2) and (min_abs_angle < np.pi/2):
-            raise ValueError("You'll cause a singularity here. You should add something to this function to fix it")
+        
+        #if (max_abs_angle > np.pi/2) and (min_abs_angle < np.pi/2):
+        #    raise ValueError("You'll cause a singularity here. You should add something to this function to fix it")
         if abs(start_state.phi) > self.max_phi or abs(goal_state.phi) > self.max_phi:
             raise ValueError("Either your start state or goal state exceeds steering angle bounds")
 
@@ -121,19 +123,50 @@ class SinusoidPlanner():
 
 
         # MOVE ALPHA
-        start_state_v = self.state2v(path[-1][2])
+
+        start_state = path[-1][2]
+        start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
-        err_alpha = goal_state_v[2] - start_state_v[2]
-        print('hello', start_state_v, goal_state_v, err_alpha)
-        alpha_path =        self.steer_alpha(
-                            path[-1][2],
-                            goal_state,
-                            path[-1][0] + dt,
-                            dt,
-                            delta_t
+        #err_alpha = goal_state_v[2] - start_state_v[2]
+        err_theta = goal_state.theta - start_state.theta
+        print('goal state before:')
+        print(goal_state)
+        full_turn_angle = np.pi/8
+        num_full_turns = int(err_theta / full_turn_angle)
+        remainder_turn_angle = err_theta % full_turn_angle
+
+        print('err_theta = {}'.format(err_theta))
+        print('full_turn_angle = {}'.format(full_turn_angle))
+        print('num_full_turns = {}'.format(num_full_turns))
+        print('remainder_turn_angle = {}'.format(remainder_turn_angle))
+
+        # Make full turns
+        for turn_number in range(num_full_turns):
+            #print('hello', start_state_v, goal_state_v, err_alpha)
+            goal_state_turn = deepcopy(goal_state)
+            goal_state_turn.theta = start_state.theta + (turn_number + 1) * full_turn_angle
+            print('current goal state:')
+            print(goal_state_turn)
+            alpha_path =        self.steer_alpha(
+                                path[-1][2],
+                                goal_state_turn,
+                                path[-1][0] + dt,
+                                dt,
+                                delta_t
+                            )
+            path.extend(alpha_path)
+        # Make remainder turn
+        alpha_path =    self.steer_alpha(
+                                path[-1][2],
+                                goal_state,
+                                path[-1][0] + dt,
+                                dt,
+                                delta_t
                         )
         path.extend(alpha_path)
 
+        print('goal state after:')
+        print(goal_state)
         # MOVE Y
         y_path =        self.steer_y(
                             path[-1][2],
@@ -250,10 +283,10 @@ class SinusoidPlanner():
             This is a list of timesteps, the command to be sent at that time, and the predicted state at that time
         """
 
-
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
         delta_alpha = goal_state_v[2] - start_state_v[2]
+        print('delta_alpha = {}'.format(delta_alpha))
 
         omega = 2*np.pi / delta_t
 
