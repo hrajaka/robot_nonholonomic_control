@@ -84,7 +84,7 @@ class SinusoidPlanner():
                             goal_state,
                             path[-1][0] + dt,
                             dt,
-                            0.05
+                            delta_t
                         )
         path.extend(phi_path)
 
@@ -121,6 +121,10 @@ class SinusoidPlanner():
 
 
         # MOVE ALPHA
+        start_state_v = self.state2v(path[-1][2])
+        goal_state_v = self.state2v(goal_state)
+        err_alpha = goal_state_v[2] - start_state_v[2]
+        print('hello', start_state_v, goal_state_v, err_alpha)
         alpha_path =        self.steer_alpha(
                             path[-1][2],
                             goal_state,
@@ -246,29 +250,6 @@ class SinusoidPlanner():
             This is a list of timesteps, the command to be sent at that time, and the predicted state at that time
         """
 
-        # start_state_v = self.state2v(start_state)
-        # goal_state_v = self.state2v(goal_state)
-        # delta_alpha = goal_state_v[2] - start_state_v[2]
-
-        # omega = 2*np.pi / delta_t
-
-        # a2 = min(1, self.phi_dist*omega)
-        # f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
-        # phi_fn = lambda t: (a2/omega)*np.sin(omega*t) + start_state_v[1]
-        # integrand = lambda t: f(phi_fn(t))*np.sin(omega*t) # The integrand to find beta
-        # beta1 = (omega/np.pi) * quad(integrand, 0, delta_t)[0]
-
-        # a1 = (delta_alpha*omega)/(np.pi*beta1)
-
-        # v1 = lambda t: a1*np.sin(omega*(t))
-        # v2 = lambda t: a2*np.cos(omega*(t))
-
-        # path, t = [], t0
-        # while t < t0 + delta_t:
-        #     path.append([t, v1(t-t0), v2(t-t0)])
-        #     t = t + dt
-        # return self.v_path_to_u_path(path, start_state, dt)
-
 
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
@@ -351,8 +332,9 @@ class SinusoidPlanner():
             '''
 
 
-            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau)) * a1*np.sin(omega*tau)
-            #f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
+            # f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau)) * a1*np.sin(omega*tau)
+            print('start_state_v[1] = {}'.format(start_state_v[1]))
+            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
 
             '''
             test_tau = np.linspace(-2.1*a1, 2.1*a1, 10)
@@ -368,6 +350,7 @@ class SinusoidPlanner():
             '''
 
             g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
+            # g = lambda alpha: (alpha+start_state_v[2])/(np.sqrt(1-(alpha+start_state_v[2])**2)) # This is from the car model
 
             integrand = lambda t: g(quad(f2, 0, t)[0]) * np.sin(omega*t)
 
@@ -406,13 +389,11 @@ class SinusoidPlanner():
         print(delta_y)
         omega = 2*np.pi / delta_t
 
-        if delta_y < 0.001:
+        if delta_y < 0.1:
+            print("I have thresholded")
             a1 = 0
             a2 = 0
         else:
-
-            
-
             a2 = min(1, self.phi_dist*omega)
             #a2 = 0.1
 
