@@ -98,7 +98,8 @@ if __name__ == '__main__':
 
     p = SinusoidPlanner(0.3, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
-    plan = p.plan_to_pose(ex.state, goalState, 0.01, 4)
+    delta_t = 8
+    plan = p.plan_to_pose(ex.state, goalState, 0.01, delta_t)
     
     plan_x = []
     plan_y = []
@@ -123,6 +124,8 @@ if __name__ == '__main__':
     plt.axvline(color='k')
     plt.axhline(color='k')
     plt.plot(range(len(plan_u1)), plan_u1, color='g')
+    plt.axhline(-2, linestyle='--', color='b')
+    plt.axhline(2, linestyle='--', color='b')
 
     plt.subplot(322)
     plt.xlabel('t')
@@ -131,6 +134,8 @@ if __name__ == '__main__':
     plt.axvline(color='k')
     plt.axhline(color='k')
     plt.plot(range(len(plan_u2)), plan_u2, color='g')
+    plt.axhline(-3, linestyle='--', color='b')
+    plt.axhline(3, linestyle='--', color='b')
 
     plt.subplot(323)
     plt.xlabel('t')
@@ -167,7 +172,9 @@ if __name__ == '__main__':
     plt.axhline(color='k')
     plt.plot(range(len(plan_phi)), plan_phi, color='r')
     plt.plot(range(len(plan_phi)), [goalState.phi]*len(plan_phi), linestyle='--', color='r')
-
+    plt.axhline(-0.3, linestyle='--', color='b')
+    plt.axhline(0.3, linestyle='--', color='b')
+    
     plt.tight_layout()
     plt.show()
 

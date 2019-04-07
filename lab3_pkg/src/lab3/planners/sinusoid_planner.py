@@ -56,7 +56,6 @@ class SinusoidPlanner():
         min_abs_angle = min(abs(goal_state.theta), abs(start_state.theta))
         if (max_abs_angle > np.pi/2) and (min_abs_angle < np.pi/2):
             raise ValueError("You'll cause a singularity here. You should add something to this function to fix it")
-
         if abs(start_state.phi) > self.max_phi or abs(goal_state.phi) > self.max_phi:
             raise ValueError("Either your start state or goal state exceeds steering angle bounds")
 
@@ -66,6 +65,10 @@ class SinusoidPlanner():
             abs(goal_state.phi + self.max_phi)
         )
 
+        # INITIALIZE PATH
+        path = []
+
+        # MOVE X
         x_path =        self.steer_x(
                             start_state,
                             goal_state,
@@ -73,31 +76,75 @@ class SinusoidPlanner():
                             dt,
                             delta_t
                         )
-        phi_path =      self.steer_phi(
-                            x_path[-1][2],
-                            goal_state,
-                            x_path[-1][0] + dt,
-                            dt,
-                            delta_t
-                        )
-        alpha_path =    self.steer_alpha(
-                            phi_path[-1][2],
-                            goal_state,
-                            phi_path[-1][0] + dt,
-                            dt,
-                            delta_t
-                        )
-        y_path =        self.steer_y(
-                            alpha_path[-1][2],
-                            goal_state,
-                            alpha_path[-1][0] + dt,
-                            dt,
-                            delta_t
-                        )
+        path.extend(x_path)
 
+        # RESET PHI
+        phi_path =      self.steer_phi(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            0.05
+                        )
+        path.extend(phi_path)
+
+        # # MOVE ALPHA (theta)
+        # start_state_v = self.state2v(path[-1][2])
+        # goal_state_v = self.state2v(goal_state)
+        # err_alpha = goal_state_v[2] - start_state_v[2]
+        # while abs(err_alpha) > 0.02:
+
+        #     start_state_v = self.state2v(path[-1][2])
+        #     err_alpha = goal_state_v[2] - start_state_v[2]
+        #     step_goal_state_v = start_state_v
+        #     step_goal_state_v[2] += 0.01 * np.sign(err_alpha)
+
+        #     print('steer alpha: error = {}'.format(err_alpha))
+
+        #     alpha_path =    self.steer_alpha(
+        #                         path[-1][2],
+        #                         step_goal_state_v,
+        #                         path[-1][0] + dt,
+        #                         dt,
+        #                         0.3#delta_t
+        #                     )
+        #     path.extend(alpha_path)
+        #     # RESET PHI
+        #     phi_path =      self.steer_phi(
+        #                         path[-1][2],
+        #                         goal_state,
+        #                         path[-1][0] + dt,
+        #                         dt,
+        #                         0.5
+        #                     )
+        #     path.extend(phi_path)
+
+
+        # MOVE ALPHA
+        alpha_path =        self.steer_alpha(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        path.extend(alpha_path)
+
+        # MOVE Y
+        y_path =        self.steer_y(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        path.extend(y_path)
+
+        '''
         path = []
         for p in [x_path, phi_path, alpha_path, y_path]:
             path.extend(p)
+        '''
         return path
 
     def steer_x(self, start_state, goal_state, t0 = 0, dt = 0.01, delta_t = 2):
@@ -164,9 +211,6 @@ class SinusoidPlanner():
         goal_state_v = self.state2v(goal_state)
         delta_phi = goal_state_v[1] - start_state_v[1]
 
-        # Flip these?
-        #v1 = delta_phi/delta_t
-        #v2 = 0
         v1 = 0
         v2 = delta_phi/delta_t
 
@@ -202,6 +246,30 @@ class SinusoidPlanner():
             This is a list of timesteps, the command to be sent at that time, and the predicted state at that time
         """
 
+        # start_state_v = self.state2v(start_state)
+        # goal_state_v = self.state2v(goal_state)
+        # delta_alpha = goal_state_v[2] - start_state_v[2]
+
+        # omega = 2*np.pi / delta_t
+
+        # a2 = min(1, self.phi_dist*omega)
+        # f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
+        # phi_fn = lambda t: (a2/omega)*np.sin(omega*t) + start_state_v[1]
+        # integrand = lambda t: f(phi_fn(t))*np.sin(omega*t) # The integrand to find beta
+        # beta1 = (omega/np.pi) * quad(integrand, 0, delta_t)[0]
+
+        # a1 = (delta_alpha*omega)/(np.pi*beta1)
+
+        # v1 = lambda t: a1*np.sin(omega*(t))
+        # v2 = lambda t: a2*np.cos(omega*(t))
+
+        # path, t = [], t0
+        # while t < t0 + delta_t:
+        #     path.append([t, v1(t-t0), v2(t-t0)])
+        #     t = t + dt
+        # return self.v_path_to_u_path(path, start_state, dt)
+
+
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
         delta_alpha = goal_state_v[2] - start_state_v[2]
@@ -216,6 +284,7 @@ class SinusoidPlanner():
 
         a1 = (delta_alpha*omega)/(np.pi*beta1)
 
+              
         v1 = lambda t: a1*np.sin(omega*(t))
         v2 = lambda t: a2*np.cos(omega*(t))
 
@@ -223,6 +292,18 @@ class SinusoidPlanner():
         while t < t0 + delta_t:
             path.append([t, v1(t-t0), v2(t-t0)])
             t = t + dt
+
+        '''
+        print('------------------')
+        print('steer_alpha:')
+        print('initial alpha: {}'.format(start_state_v[2]))
+        print('goal alpha: {}'.format(goal_state_v[2]))
+        print('calculated coefficients:')
+        print('  a1 = {}'.format(a1))
+        print('  a2 = {}'.format(a2))
+        print('  beta1 = {}'.format(beta1))
+        print('------------------')
+        '''
         return self.v_path_to_u_path(path, start_state, dt)
 
 
@@ -257,12 +338,51 @@ class SinusoidPlanner():
             """
             f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
 
-            #f2 = lambda tau: f((a2/(2*omega))*a1*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
+            '''
+            test_phi = np.linspace(-a2/(2*omega), a2/(2*omega), 10)
+            test_f = f(test_phi)
+            print('Testing all possible f(phi)')
+            plt.figure()
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.grid(True)
+            plt.plot(test_phi, test_f)
+            plt.show()
+            '''
+
+
             f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau)) * a1*np.sin(omega*tau)
+            #f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
+
+            '''
+            test_tau = np.linspace(-2.1*a1, 2.1*a1, 10)
+            test_tau = f2(test_phi)
+            print('Testing all possible f2(tau)')
+            plt.figure()
+            plt.title('f2')
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.grid(True)
+            plt.plot(test_phi, test_f)
+            plt.show()
+            '''
 
             g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
 
             integrand = lambda t: g(quad(f2, 0, t)[0]) * np.sin(omega*t)
+
+            ###
+            # plt.figure()
+            # ts = np.linspace(0, delta_t, 30)
+            # for t in ts:
+            #     the_quad = quad(f2, 0, t)[0] 
+            #     print(the_quad)
+            #     plt.plot(t, the_quad)
+            # plt.show()
+            ###
+            #the_quad = quad(f2, 0, delta_t)[0] 
+            #print(the_quad)
+            ###
 
             beta1 = (omega/np.pi) * quad(integrand, 0, delta_t)[0]
 
@@ -273,7 +393,6 @@ class SinusoidPlanner():
 
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
-
         print('************************************')
         print('STEER Y ROUTINE')
         print('start state')
@@ -287,51 +406,68 @@ class SinusoidPlanner():
         print(delta_y)
         omega = 2*np.pi / delta_t
 
-        a2 = min(1, self.phi_dist*omega)
+        if delta_y < 0.001:
+            a1 = 0
+            a2 = 0
+        else:
 
-        # plot the value of final_y against a1 to see if increasing of decreasing
-        a1s = np.linspace(-5, 5, 50)
-        final_ys = []
-        for a1 in a1s:
-            beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
-            final_ys.append(compute_final_y(a1, a2, beta1, start_state_v, omega))
-            #final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
-
-        plt.figure()
-        plt.title('Binary Search Results')
-        plt.xlabel('a1')
-        plt.ylabel('y final')
-        plt.grid(True)
-        plt.axvline(color='k')
-        plt.axhline(color='k')
-        plt.plot(a1s, final_ys, color='b')
-        plt.plot(a1s, goal_state_v[3]*np.ones(a1s.size), linestyle='--', color='r')
-
-        # now we do the binary search
-        a1_inf = -5
-        a1_sup = 5
-
-        for k in range(15):
-            a1_middle = float((a1_inf + a1_sup)) / 2
-            #print('a1_middle = {}'.format(a1_middle))
-            beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
             
-            final_y = start_state_v[3] + (np.pi*a1_middle*beta1)/omega
 
-            #print('final_y = {}'.format(final_y))
-            plt.scatter(a1_middle, final_y, marker='o', color='r')
-            if goal_state_v[3] - final_y > 0: 
-                a1_inf = a1_middle
-            else:
-                a1_sup = a1_middle
+            a2 = min(1, self.phi_dist*omega)
+            #a2 = 0.1
 
-        plt.scatter(a1_middle, final_y, marker='o', color='g')
-        plt.show()
-        # TODO: problem at the moment: the final_y that I compute does not correspond to what the Predicted Final State is in the main
+            # plot the value of final_y against a1 to see if increasing of decreasing
+            a1s = np.linspace(-5, 5, 50)
+            final_ys = []
+            for a1 in a1s:
+                beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
+                final_ys.append(compute_final_y(a1, a2, beta1, start_state_v, omega))
+                #final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
+
+            plt.figure()
+            plt.title('Binary Search Results')
+            plt.xlabel('a1')
+            plt.ylabel('y final')
+            plt.grid(True)
+            plt.axvline(color='k')
+            plt.axhline(color='k')
+            plt.plot(a1s, final_ys, color='b')
+            plt.plot(a1s, goal_state_v[3]*np.ones(a1s.size), linestyle='--', color='r')
+
+            # now we do the binary search
+            a1_inf = -5
+            a1_sup = 5
+
+            for k in range(15):
+                a1_middle = float((a1_inf + a1_sup)) / 2
+                #print('a1_middle = {}'.format(a1_middle))
+                beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
+                
+                # final_y = start_state_v[3] + (np.pi*a1_middle*beta1)/omega
+                final_y = compute_final_y(a1_middle, a2, beta1, start_state_v, omega)
+
+                #print('final_y = {}'.format(final_y))
+                plt.scatter(a1_middle, final_y, marker='o', color='r')
+                if goal_state_v[3] - final_y > 0: 
+                    a1_inf = a1_middle
+                else:
+                    a1_sup = a1_middle
+            a1 = a1_middle
+            plt.scatter(a1_middle, final_y, marker='o', color='g')
+            plt.show()
+            print('\n\n')
+
+            print('steer_y:')
+            print('initial y: {}'.format(start_state_v[3]))
+            print('goal Y: {}'.format(goal_state_v[3]))
+            print('calculated coefficients:')
+            print('  a1 = {}'.format(a1))
+            print('  a2 = {}'.format(a2))
+            print('  beta1 = {}'.format(beta1))
 
         # at this point we have determined the optimal value of a1
 
-        v1 = lambda t: a1_middle*np.sin(omega*(t))
+        v1 = lambda t: a1*np.sin(omega*(t))
         v2 = lambda t: a2*np.cos(2*omega*(t))
 
         path, t = [], t0
@@ -339,21 +475,6 @@ class SinusoidPlanner():
             path.append([t, v1(t-t0), v2(t-t0)])
             t = t + dt
 
-        pat = np.array(path)
-        plt.figure()
-        plt.title('commands for steer_y step')
-        plt.xlabel('t')
-        plt.ylabel('command')
-        plt.grid(True)
-        plt.axvline(color='k')
-        plt.axhline(color='k')
-        plt.plot(pat[:,0], pat[:,1], color='r', label='v1')
-        plt.plot(pat[:,0], pat[:,2], color='b', label='v2')
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
-
-        print('\n\n')
         return self.v_path_to_u_path(path, start_state, dt)
 
     def state2v(self, state):
