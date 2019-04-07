@@ -131,7 +131,7 @@ class SinusoidPlanner():
         err_theta = goal_state.theta - start_state.theta
         print('goal state before:')
         print(goal_state)
-        full_turn_angle = np.pi/8
+        full_turn_angle = np.pi/4
         num_full_turns = int(err_theta / full_turn_angle)
         remainder_turn_angle = err_theta % full_turn_angle
 
@@ -139,7 +139,18 @@ class SinusoidPlanner():
         print('full_turn_angle = {}'.format(full_turn_angle))
         print('num_full_turns = {}'.format(num_full_turns))
         print('remainder_turn_angle = {}'.format(remainder_turn_angle))
+        alpha_path =    self.steer_alpha(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        #path.extend(alpha_path)
+        for turn_number in range(4):
+            path.extend(alpha_path)
 
+        '''
         # Make full turns
         for turn_number in range(num_full_turns):
             #print('hello', start_state_v, goal_state_v, err_alpha)
@@ -164,6 +175,7 @@ class SinusoidPlanner():
                                 delta_t
                         )
         path.extend(alpha_path)
+        '''
 
         print('goal state after:')
         print(goal_state)
