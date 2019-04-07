@@ -99,8 +99,25 @@ if __name__ == '__main__':
     p = SinusoidPlanner(0.3, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
     delta_t = 10
+    '''
     plan = p.plan_to_pose(ex.state, goalState, 0.01, delta_t)
-    
+    '''
+    full_turn_angle = np.pi/4
+
+    plan = []
+
+    if args.theta > full_turn_angle:
+        num_full_turns = int(args.theta / full_turn_angle)
+        remainder_turn_angle = args.theta % full_turn_angle
+
+        for turn_nbr in range(num_full_turns):
+            temp_goalState = BicycleStateMsg(args.x, args.y, (turn_nbr+1)*full_turn_angle, args.phi)
+            temp_plan = p.plan_to_pose(ex.state, temp_goalState, 0.01, delta_t)
+            plan.extend(temp_plan)
+
+    temp_plan = p.plan_to_pose(ex.state, goalState, 0.01, delta_t)
+    plan.extend(temp_plan)
+
     plan_x = []
     plan_y = []
     plan_theta = []

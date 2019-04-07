@@ -30,7 +30,7 @@ class SinusoidPlanner():
         self.max_u1 = max_u1
         self.max_u2 = max_u2
 
-    def plan_to_pose(self, start_state, goal_state, dt = 0.01, delta_t=4):
+    def plan_to_pose_old(self, start_state, goal_state, dt = 0.01, delta_t=4):
         """
         Plans to a specific pose in (x,y,theta,phi) coordinates.  You
         may or may not have to convert the state to a v state with state2v()
@@ -147,7 +147,7 @@ class SinusoidPlanner():
                             delta_t
                         )
         #path.extend(alpha_path)
-        for turn_number in range(4):
+        for turn_number in range(4): # not sure it makes sense except if we want to go to pi
             path.extend(alpha_path)
 
         '''
@@ -194,6 +194,84 @@ class SinusoidPlanner():
         for p in [x_path, phi_path, alpha_path, y_path]:
             path.extend(p)
         '''
+        return path
+
+    def plan_to_pose(self, start_state, goal_state, dt = 0.01, delta_t=4):
+        """
+        Plans to a specific pose in (x,y,theta,phi) coordinates.  You
+        may or may not have to convert the state to a v state with state2v()
+        This is a very optional function.  You may want to plan each component separately
+        so that you can reset phi in case there's drift in phi
+
+        Parameters
+        ----------
+        start_state: :obj:`BicycleStateMsg`
+        goal_state: :obj:`BicycleStateMsg`
+        dt : float
+            how many seconds between trajectory timesteps
+        delta_t : float
+            how many seconds each trajectory segment should run for
+
+        Returns
+        -------
+        :obj:`list` of (float, BicycleCommandMsg, BicycleStateMsg)
+            This is a list of timesteps, the command to be sent at that time, and the predicted state at that time
+        """
+
+        # This bit hasn't been exhaustively tested, so you might hit a singularity anyways
+        max_abs_angle = max(abs(goal_state.theta), abs(start_state.theta))
+        min_abs_angle = min(abs(goal_state.theta), abs(start_state.theta))
+        
+        #if (max_abs_angle > np.pi/2) and (min_abs_angle < np.pi/2):
+        #    raise ValueError("You'll cause a singularity here. You should add something to this function to fix it")
+        if abs(start_state.phi) > self.max_phi or abs(goal_state.phi) > self.max_phi:
+            raise ValueError("Either your start state or goal state exceeds steering angle bounds")
+
+        # We can only change phi up to some threshold
+        self.phi_dist = min(
+            abs(goal_state.phi - self.max_phi),
+            abs(goal_state.phi + self.max_phi)
+        )
+
+        # INITIALIZE PATH
+        path = []
+
+        x_path =        self.steer_x(
+                            start_state,
+                            goal_state,
+                            0,
+                            dt,
+                            delta_t
+                        )
+        path.extend(x_path)
+
+        phi_path =      self.steer_phi(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        path.extend(phi_path)
+
+        alpha_path =      self.steer_alpha(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        path.extend(alpha_path)
+
+        y_path =        self.steer_y(
+                            path[-1][2],
+                            goal_state,
+                            path[-1][0] + dt,
+                            dt,
+                            delta_t
+                        )
+        path.extend(y_path)
+
         return path
 
     def steer_x(self, start_state, goal_state, t0 = 0, dt = 0.01, delta_t = 2):
