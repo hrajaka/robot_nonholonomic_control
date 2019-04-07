@@ -333,9 +333,8 @@ class SinusoidPlanner():
 
 
             # f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau)) * a1*np.sin(omega*tau)
-            print('start_state_v[1] = {}'.format(start_state_v[1]))
-            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau)
-
+            #print('start_state_v[1] = {}'.format(start_state_v[1]))
+            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau) 
             '''
             test_tau = np.linspace(-2.1*a1, 2.1*a1, 10)
             test_tau = f2(test_phi)
@@ -352,7 +351,7 @@ class SinusoidPlanner():
             g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
             # g = lambda alpha: (alpha+start_state_v[2])/(np.sqrt(1-(alpha+start_state_v[2])**2)) # This is from the car model
 
-            integrand = lambda t: g(quad(f2, 0, t)[0]) * np.sin(omega*t)
+            integrand = lambda t: g(quad(f2, 0, t)[0] + start_state_v[2]) * a1*np.sin(omega*t)
 
             ###
             # plt.figure()
@@ -371,8 +370,22 @@ class SinusoidPlanner():
 
             return beta1  
 
-        def compute_final_y(a1, a2, beta1, start_state_v, omega):
-            return start_state_v[3] + np.pi * a1 * beta1 / omega
+        # def compute_final_y(a1, a2, beta1, start_state_v, omega):
+        #     print('computing final_y based on initial_y: {}'.format(start_state_v[3]))
+        #     return start_state_v[3] + np.pi * a1 * beta1 / omega
+
+        def compute_final_y(a1, a2, start_state_v, omega):
+            f = lambda phi: (1/self.l)*np.tan(phi) # This is from the car model
+
+            f2 = lambda tau: f(a2/(2*omega)*np.sin(2*omega*tau) + start_state_v[1]) * a1*np.sin(omega*tau) 
+           
+            g = lambda alpha: alpha/(np.sqrt(1-alpha**2)) # This is from the car model
+
+            integrand = lambda t: g(quad(f2, 0, t)[0] + start_state_v[2]) * a1*np.sin(omega*t)
+
+            y_final = quad(integrand, 0, delta_t)[0] + start_state_v[3]
+
+            return y_final
 
         start_state_v = self.state2v(start_state)
         goal_state_v = self.state2v(goal_state)
@@ -389,20 +402,23 @@ class SinusoidPlanner():
         print(delta_y)
         omega = 2*np.pi / delta_t
 
-        if delta_y < 0.1:
+        if False: #delta_y < 0.1:
             print("I have thresholded")
             a1 = 0
             a2 = 0
         else:
-            a2 = min(1, self.phi_dist*omega)
+            a2 = min(0.05, self.phi_dist*omega)
             #a2 = 0.1
-
+            # now we do the binary search
+            a1_inf = 0
+            a1_sup = 2
             # plot the value of final_y against a1 to see if increasing of decreasing
-            a1s = np.linspace(-5, 5, 50)
+            a1s = np.linspace(a1_inf, a1_sup, 50)
             final_ys = []
             for a1 in a1s:
-                beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
-                final_ys.append(compute_final_y(a1, a2, beta1, start_state_v, omega))
+                #beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
+                final_ys.append(compute_final_y(a1, a2, start_state_v, omega))
+                print(final_ys[-1])
                 #final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
 
             plt.figure()
@@ -415,17 +431,15 @@ class SinusoidPlanner():
             plt.plot(a1s, final_ys, color='b')
             plt.plot(a1s, goal_state_v[3]*np.ones(a1s.size), linestyle='--', color='r')
 
-            # now we do the binary search
-            a1_inf = -5
-            a1_sup = 5
+            
 
             for k in range(15):
                 a1_middle = float((a1_inf + a1_sup)) / 2
                 #print('a1_middle = {}'.format(a1_middle))
-                beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
+                # beta1 = compute_beta1(a1_middle, a2, start_state_v, omega, delta_t, delta_y)
                 
                 # final_y = start_state_v[3] + (np.pi*a1_middle*beta1)/omega
-                final_y = compute_final_y(a1_middle, a2, beta1, start_state_v, omega)
+                final_y = compute_final_y(a1_middle, a2, start_state_v, omega)
 
                 #print('final_y = {}'.format(final_y))
                 plt.scatter(a1_middle, final_y, marker='o', color='r')
@@ -444,7 +458,7 @@ class SinusoidPlanner():
             print('calculated coefficients:')
             print('  a1 = {}'.format(a1))
             print('  a2 = {}'.format(a2))
-            print('  beta1 = {}'.format(beta1))
+            # print('  beta1 = {}'.format(beta1))
 
         # at this point we have determined the optimal value of a1
 
