@@ -530,7 +530,7 @@ class SinusoidPlanner():
             a1 = 0
             a2 = 0
         else:
-            a2 = min(0.05, self.phi_dist*omega)
+            a2 = min(0.01, self.phi_dist*omega)
             #a2 = 0.1
             # now we do the binary search
             a1_inf = 0
@@ -541,7 +541,7 @@ class SinusoidPlanner():
             for a1 in a1s:
                 #beta1 = compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y)
                 final_ys.append(compute_final_y(a1, a2, start_state_v, omega))
-                print(final_ys[-1])
+                #print(final_ys[-1])
                 #final_ys.append( start_state_v[3] + (np.pi*a1*compute_beta1(a1, a2, start_state_v, omega, delta_t, delta_y))/omega)
 
             plt.figure()
