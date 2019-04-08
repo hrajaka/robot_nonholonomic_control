@@ -27,6 +27,11 @@ class Exectutor(object):
         self.rate = rospy.Rate(100)
         self.state = BicycleStateMsg()
         rospy.on_shutdown(self.shutdown)
+        self.start_time = rospy.get_time()
+        self.times = []
+        self.plan_states = []
+        self.actual_states = []
+
 
     def execute(self, plan):
         """
@@ -36,15 +41,94 @@ class Exectutor(object):
         ----------
         plan : :obj:`list` of (time, BicycleCommandMsg, BicycleStateMsg)
         """
+        print('Exectutor starting to exectute plan')
+
         if len(plan) == 0:
             return
 
         for (t, cmd, state) in plan:
+            self.times.append(rospy.get_time() - self.start_time)
+            self.actual_states.append([self.state.x,
+                                       self.state.y,
+                                       self.state.theta,
+                                       self.state.phi])
+            self.plan_states.append([state.x,
+                                     state.y,
+                                     state.theta,
+                                     state.phi])
             self.cmd(cmd)
             self.rate.sleep()
             if rospy.is_shutdown():
                 break
         self.cmd(BicycleCommandMsg())
+        
+        print('Exectutor done exectuting')
+        self.plot()
+
+    def plot(self):
+        times_arr = np.array(self.times)
+        actual_states_arr = np.array(self.actual_states)
+        plan_states_arr = np.array(self.plan_states)
+
+        
+
+        plt.figure()
+
+        plt.subplot(221)
+        plt.title('x')
+        plt.xlabel('t (seconds)')
+        plt.ylabel('x (m)')
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(times_arr, plan_states_arr[:,0], color='g',
+            linestyle='--', label='plan state')
+        plt.plot(times_arr, actual_states_arr[:,0], color='r',
+            label='actual state')
+        plt.legend()
+        
+        plt.subplot(222)
+        plt.title('y')
+        plt.xlabel('t (seconds)')
+        plt.ylabel('y (m)')
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(times_arr, plan_states_arr[:,1], color='g',
+            linestyle='--', label='plan state')
+        plt.plot(times_arr, actual_states_arr[:,1], color='r',
+            label='actual state')
+        plt.legend()
+
+        plt.subplot(223)
+        plt.title('theta')
+        plt.xlabel('t (seconds)')
+        plt.ylabel('theta (rad)')
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(times_arr, plan_states_arr[:,2], color='g',
+            linestyle='--', label='plan state')
+        plt.plot(times_arr, actual_states_arr[:,2], color='r',
+            label='actual state')
+        plt.legend()
+
+        plt.subplot(224)
+        plt.title('Steering with Sinusoids Results')
+        plt.xlabel('t (seconds)')
+        plt.ylabel('phi (rad)')
+        plt.grid(True)
+        plt.axvline(color='k')
+        plt.axhline(color='k')
+        plt.plot(times_arr, plan_states_arr[:,3], color='g',
+            linestyle='--', label='plan state')
+        plt.plot(times_arr, actual_states_arr[:,3], color='r',
+            label='actual state')
+        plt.legend()
+
+        plt.tight_layout()
+        plt.show()
+
 
     def execute_closed_loop(self, plan, l):
         """
@@ -183,7 +267,7 @@ if __name__ == '__main__':
     l = 0.3 
     p = SinusoidPlanner(l, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
-    delta_t = 10
+    delta_t = 6
     '''
     plan = p.plan_to_pose(ex.state, goalState, 0.01, delta_t)
     '''
