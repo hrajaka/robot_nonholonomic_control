@@ -530,7 +530,7 @@ class SinusoidPlanner():
             a1 = 0
             a2 = 0
         else:
-            a2 = min(0.01, self.phi_dist*omega)
+            a2 = min(1, self.phi_dist*omega)
             #a2 = 0.1
             # now we do the binary search
             a1_inf = 0
