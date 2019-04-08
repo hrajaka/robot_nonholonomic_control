@@ -6,7 +6,8 @@ Author: Valmik Prabhu, Chris Correa
 import numpy as np
 import sys
 import argparse
-
+from scipy.integrate import quad
+from scipy.linalg import expm
 import tf2_ros
 import tf
 from std_srvs.srv import Empty as EmptySrv
@@ -44,6 +45,89 @@ class Exectutor(object):
             if rospy.is_shutdown():
                 break
         self.cmd(BicycleCommandMsg())
+
+    def execute_closed_loop(self, plan, l):
+        """
+        Executes a plan made by the planner with the closed loop controller
+
+        Parameters
+        ----------
+        plan : :obj:`list` of (time, BicycleCommandMsg, BicycleStateMsg)
+        """
+        def compute_A(t_index):
+            t = plan[t_index][0]
+            u1 = plan[t_index][1].linear_velocity
+            u2 = plan[t_index][1].steering_rate
+            theta = plan[t_index][2].theta
+            phi = plan[t_index][2].phi
+
+            A00 = 0
+            A01 = 0
+            A02 = np.sin(theta) * u1
+            A03 = 0
+
+            A10 = 0
+            A11 = 0
+            A12 = -np.cos(theta) * u1
+            A13 = 0
+
+            A20 = 0
+            A21 = 0
+            A22 = 0
+            A23 = (1/l) * (1/np.cos(phi))**2
+
+            A30 = 0
+            A31 = 0
+            A32 = 0
+            A33 = 0
+
+
+            A = np.array([[A00, A01, A02, A03], 
+                          [A10, A11, A12, A13], 
+                          [A20, A21, A22, A23], 
+                          [A30, A31, A32, A33], 
+                         ])
+            return A
+
+        def compute_B(t_index):
+            t = plan[t_index][0]
+            u1 = plan[t_index][1].linear_velocity
+            u2 = plan[t_index][1].steering_rate
+            theta = plan[t_index][2].theta
+            phi = plan[t_index][2].phi
+
+            B00 = np.cos(theta)
+            B01 = 0
+         
+            B10 = np.sin(theta)
+            B11 = 0
+
+            B20 = (1/l) * np.tan(theta)
+            B21 = 0
+
+            B30 = 0
+            B31 = 1
+
+            B = np.array([[B00, B01], 
+                          [B10, B11], 
+                          [B20, B21], 
+                          [B30, B31], 
+                         ])
+            return B
+
+        # def compute_Phi(t_index_0, t_index):
+        #     print(np.asarray(plan).shape)
+
+        #     t0 = plan[t_index_0][0]
+        #     t = plan[t_index][0]
+
+        #     integral = quad(compute_A, t0, t)
+        #     return expm(integral)
+        def integrand(tau, t):
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(expm(-compute_A(t)*tau), compute_B(t)), np.dot( np.transpose(compute_B(t)), np.transpose(expm(-compute_A(t)*tau)))) 
+
+        t = 0
+        Hc = quad(integrand, t, t+1, args=(t))
 
     def cmd(self, msg):
         """
@@ -95,8 +179,9 @@ if __name__ == '__main__':
 
     print "Initial State"
     print ex.state
-
-    p = SinusoidPlanner(0.3, 0.3, 2, 3)
+    
+    l = 0.3 
+    p = SinusoidPlanner(l, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
     delta_t = 10
     '''
@@ -199,6 +284,10 @@ if __name__ == '__main__':
     print plan[0][2]
     print "Predicted Final State"
     print plan[-1][2]
+
+
+    ex.execute_closed_loop(plan, l)
+
 
     ex.execute(plan)
     print "Final State"
