@@ -27,7 +27,7 @@ class Exectutor(object):
         self.rate = rospy.Rate(100)
         self.state = BicycleStateMsg()
         rospy.on_shutdown(self.shutdown)
-        self.start_time = rospy.get_time()
+        self.start_time = None
         self.times = []
         self.plan_states = []
         self.actual_states = []
@@ -46,6 +46,7 @@ class Exectutor(object):
         if len(plan) == 0:
             return
 
+        self.start_time = rospy.get_time()
         for (t, cmd, state) in plan:
             self.times.append(rospy.get_time() - self.start_time)
             self.actual_states.append([self.state.x,
@@ -75,7 +76,6 @@ class Exectutor(object):
         plt.figure()
 
         plt.subplot(221)
-        plt.title('x')
         plt.xlabel('t (seconds)')
         plt.ylabel('x (m)')
         plt.grid(True)
@@ -88,7 +88,6 @@ class Exectutor(object):
         plt.legend()
         
         plt.subplot(222)
-        plt.title('y')
         plt.xlabel('t (seconds)')
         plt.ylabel('y (m)')
         plt.grid(True)
@@ -101,7 +100,6 @@ class Exectutor(object):
         plt.legend()
 
         plt.subplot(223)
-        plt.title('theta')
         plt.xlabel('t (seconds)')
         plt.ylabel('theta (rad)')
         plt.grid(True)
@@ -114,7 +112,6 @@ class Exectutor(object):
         plt.legend()
 
         plt.subplot(224)
-        plt.title('Steering with Sinusoids Results')
         plt.xlabel('t (seconds)')
         plt.ylabel('phi (rad)')
         plt.grid(True)
@@ -130,7 +127,7 @@ class Exectutor(object):
         plt.show()
 
 
-    def execute_closed_loop(self, plan, l):
+    def execute_closed_loop(self, plan, l, dt=0.01):
         """
         Executes a plan made by the planner with the closed loop controller
 
@@ -158,7 +155,7 @@ class Exectutor(object):
             A20 = 0
             A21 = 0
             A22 = 0
-            A23 = (1/l) * (1/np.cos(phi))**2
+            A23 = (1/l) * (1/np.cos(phi))**2 * u1
 
             A30 = 0
             A31 = 0
@@ -199,19 +196,194 @@ class Exectutor(object):
                          ])
             return B
 
-        # def compute_Phi(t_index_0, t_index):
-        #     print(np.asarray(plan).shape)
 
-        #     t0 = plan[t_index_0][0]
-        #     t = plan[t_index][0]
+        def integrand_00(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[0,0] 
 
-        #     integral = quad(compute_A, t0, t)
-        #     return expm(integral)
-        def integrand(tau, t):
-            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(expm(-compute_A(t)*tau), compute_B(t)), np.dot( np.transpose(compute_B(t)), np.transpose(expm(-compute_A(t)*tau)))) 
+        def integrand_01(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[0,1] 
 
-        t = 0
-        Hc = quad(integrand, t, t+1, args=(t))
+        def integrand_02(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[0,2] 
+
+        def integrand_03(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[0,3] 
+
+
+        def integrand_10(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[1,0] 
+
+        def integrand_11(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[1,1] 
+
+        def integrand_12(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[1,2] 
+
+        def integrand_13(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot( BT, exp_A_tauT))[1,3] 
+
+
+        def integrand_20(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[2,0] 
+
+        def integrand_21(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[2,1] 
+
+        def integrand_22(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[2,2] 
+
+        def integrand_23(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[2,3] 
+
+
+        def integrand_30(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[3,0] 
+
+        def integrand_31(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[3,1] 
+
+        def integrand_32(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[3,2] 
+
+        def integrand_33(tau, t, t_index):
+            exp_A_tau = expm(-A*tau)
+            exp_A_tauT = np.transpose(exp_A_tau)
+            return np.exp(6*0.1*(tau-t)) * np.dot( np.dot(exp_A_tau, B), np.dot(BT, exp_A_tauT))[3,3] 
+
+
+        print("COMPUTING THE INTERESTING MATRICES")
+
+        Pcs = []
+        Bs = []
+        nb_steps_dt = 5
+
+        for t_index in range(50):#range(np.asarray(plan).shape[0]-1):
+
+            A = compute_A(t_index)
+            B = compute_B(t_index)
+            AT = np.transpose(A)
+            BT = np.transpose(B)
+           
+
+            t = plan[t_index][0]
+            t_plus_dt = plan[t_index+1][0]
+            Hc = np.zeros((4, 4))
+
+            Hc[0,0] = quad(integrand_00, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[0,1] = quad(integrand_01, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[0,2] = quad(integrand_02, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[0,3] = quad(integrand_03, t, t_plus_dt, args=(t, t_index))[0]
+
+            Hc[1,0] = quad(integrand_10, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[1,1] = quad(integrand_11, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[1,2] = quad(integrand_12, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[1,3] = quad(integrand_13, t, t_plus_dt, args=(t, t_index))[0]
+
+            Hc[2,0] = quad(integrand_20, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[2,1] = quad(integrand_21, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[2,2] = quad(integrand_22, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[2,3] = quad(integrand_23, t, t_plus_dt, args=(t, t_index))[0]
+
+            Hc[3,0] = quad(integrand_30, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[3,1] = quad(integrand_31, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[3,2] = quad(integrand_32, t, t_plus_dt, args=(t, t_index))[0]
+            Hc[3,3] = quad(integrand_33, t, t_plus_dt, args=(t, t_index))[0]
+
+
+            # t = plan[t_index][0]
+            # A_t = compute_A(t_index)
+            # B_t = compute_B(t_index)
+            # A_t_T = np.transpose(A_t)
+            # B_t_T = np.transpose(B_t)
+
+            # t_dt_ = plan[t_index + nb_steps_dt][0]
+            # A_t_dt_ = compute_A(t_index + nb_steps_dt)
+            # B_t_dt_ = compute_B(t_index + nb_steps_dt)
+            # A_t_dt__T = np.transpose(A_t_dt)
+            # B_t_dt__T = np.transpose(B_t_dt)
+
+            # left_value = np.dot(np.dot(np.expm(-A_t*t), B_t), np.dot(B_t_T, np.transpose(np.expm(-A_t*t))))
+            # right_value = np.exp(6*0.1*t_dt-t)
+
+
+
+            Pc = np.linalg.inv(Hc)
+            Pcs.append(Pc)
+
+            B = compute_B(t_index)
+
+            Bs.append(B)
+
+        print('Exectutor starting to exectute plan')
+
+        print(len(Pcs))
+        print(len(Bs))
+
+        GAMMA = 0.1
+
+        if len(plan) == 0:
+            return
+
+        self.start_time = rospy.get_time()
+        for i, (t, cmd, state) in enumerate(plan):
+            self.times.append(rospy.get_time() - self.start_time)
+            self.actual_states.append([self.state.x,
+                                       self.state.y,
+                                       self.state.theta,
+                                       self.state.phi])
+            self.plan_states.append([state.x,
+                                     state.y,
+                                     state.theta,
+                                     state.phi])
+
+            curr_state = np.array([self.state.x, self.state.y, self.state.theta, self.state.phi]).reshape((4,1))
+            plan_state = np.array([state.x, state.y, state.theta, state.phi]).reshape((4,1))
+            
+            feedback_term = GAMMA * np.dot(np.dot(np.transpose(Bs[i]), Pcs[i]), curr_state - plan_state)
+
+            u1_feedback = cmd.linear_velocity - feedback_term[0]
+            u2_feedback = cmd.steering_rate - feedback_term[1]
+
+            self.cmd(BicycleCommandMsg(u1_feedback, u2_feedback))
+            self.rate.sleep()
+            if rospy.is_shutdown():
+                break
+        self.cmd(BicycleCommandMsg())
+        
+        print('Exectutor done exectuting')
+        self.plot()
+ 
+
 
     def cmd(self, msg):
         """
@@ -267,7 +439,7 @@ if __name__ == '__main__':
     l = 0.3 
     p = SinusoidPlanner(l, 0.3, 2, 3)
     goalState = BicycleStateMsg(args.x, args.y, args.theta, args.phi)
-    delta_t = 6
+    delta_t = 10
     '''
     plan = p.plan_to_pose(ex.state, goalState, 0.01, delta_t)
     '''
@@ -371,9 +543,8 @@ if __name__ == '__main__':
 
 
     ex.execute_closed_loop(plan, l)
-
-
-    ex.execute(plan)
+    # ex.execute(plan)
+    
     print "Final State"
     print ex.state
 
